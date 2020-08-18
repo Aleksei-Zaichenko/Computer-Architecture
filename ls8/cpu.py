@@ -12,22 +12,24 @@ class CPU:
         self.ram = [0] * 256
         self.reg = [0] * 8
 
-    def load(self):
+    def load(self, fileName):
         """Load a program into memory."""
-
         address = 0
+        program = []
 
-        # For now, we've just hardcoded a program:
+        try:
+            with open(fileName) as file:
+                for line in file:
+                    split_lines = line.split('#')[0]
+                    command = split_lines.strip()
 
-        program = [
-            # From print8.ls8
-            'LDI',  # 0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            'PRN',  # 0b01000111,  # PRN R0
-            0b00000000,
-            'HLT'  # 0b00000001,  # HLT
-        ]
+                    if command == '':
+                        continue
+                    num = int(command, 2)
+                    program.append(num)
+
+        except FileNotFoundError:
+            print(f'{fileName} was not found')
 
         for instruction in program:
             self.ram[address] = instruction
@@ -40,6 +42,8 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         elif op == "SUB":
             self.reg[reg_a] -= self.reg[reg_b]
+        elif op == 'MUL':
+            self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -66,6 +70,11 @@ class CPU:
     def run(self):
         """Run the CPU."""
 
+        HLT = 0b00000001
+        LDI = 0b10000010
+        PRN = 0b01000111
+        MUL = 0b10100010
+
         running = True
 
         op_size = 1
@@ -73,16 +82,21 @@ class CPU:
         while running:
             cmd = self.ram[self.pc]
 
-            if cmd == 'HLT':
+            if cmd == HLT:
                 running = False
-            elif cmd == 'LDI':
+            elif cmd == LDI:
                 self.reg[self.ram_read(self.pc + 1)
                          ] = self.ram_read(self.pc + 2)
-                op_size = 3
+                op_size = 1 + (cmd >> 6)  # should be 3
 
-            elif cmd == "PRN":
+            elif cmd == PRN:
                 print(self.reg[self.ram_read(self.pc + 1)])
-                op_size = 2
+                op_size = 1 + (cmd >> 6)  # should be 2
+
+            elif cmd == MUL:
+                self.alu('MUL', self.ram_read(self.pc + 1),
+                         self.ram_read(self.pc + 2))
+                op_size = 1 + (cmd >> 6)  # should be 3
 
             self.pc += op_size
 
