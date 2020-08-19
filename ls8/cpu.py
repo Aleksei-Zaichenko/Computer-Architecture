@@ -11,6 +11,7 @@ class CPU:
         self.pc = 0
         self.ram = [0] * 256
         self.reg = [0] * 8
+        self.stackPointerIndex = 7
 
     def load(self, fileName):
         """Load a program into memory."""
@@ -34,6 +35,9 @@ class CPU:
         for instruction in program:
             self.ram[address] = instruction
             address += 1
+
+        # reserve 7th register for stack pointer
+        self.reg[self.stackPointerIndex] = 0xF4
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -74,6 +78,8 @@ class CPU:
         LDI = 0b10000010
         PRN = 0b01000111
         MUL = 0b10100010
+        PUSH = 0b01000101
+        POP = 0b01000110
 
         running = True
 
@@ -97,6 +103,33 @@ class CPU:
                 self.alu('MUL', self.ram_read(self.pc + 1),
                          self.ram_read(self.pc + 2))
                 op_size = 1 + (cmd >> 6)  # should be 3
+
+            elif cmd == PUSH:
+                # decrement the stack pointer by one
+                self.reg[self.stackPointerIndex] -= 1
+
+                # get the index of the register
+                registerNumber = self.ram[self.pc + 1]
+
+                # get the value stored on the given register
+                value = self.reg[registerNumber]
+
+                # store the given value in the memory stack
+                self.ram[self.reg[self.stackPointerIndex]] = value
+
+                op_size = 1 + (cmd >> 6)  # should be 2
+
+            elif cmd == POP:
+                # get the value that stack pointer is currently pointing at
+                value = self.ram[self.reg[self.stackPointerIndex]]
+
+                # store the value to the given register
+                self.reg[self.ram[self.pc + 1]] = value
+
+                # increment the stack pointer
+                self.reg[self.stackPointerIndex] += 1
+
+                op_size = 1 + (cmd >> 6)  # should be 2
 
             self.pc += op_size
 
