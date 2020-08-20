@@ -74,35 +74,42 @@ class CPU:
     def run(self):
         """Run the CPU."""
 
+        # Math operations
+        ADD = 0b10100000
+
         HLT = 0b00000001
         LDI = 0b10000010
         PRN = 0b01000111
         MUL = 0b10100010
         PUSH = 0b01000101
         POP = 0b01000110
+        CALL = 0b01010000
+        RET = 0b00010001
 
         running = True
 
-        op_size = 1
-
         while running:
             cmd = self.ram[self.pc]
-
             if cmd == HLT:
                 running = False
+            elif cmd == ADD:
+                self.alu('ADD', self.ram_read(self.pc + 1),
+                         self.ram_read(self.pc + 2))
+                self.pc += 1 + (cmd >> 6)
+
             elif cmd == LDI:
                 self.reg[self.ram_read(self.pc + 1)
                          ] = self.ram_read(self.pc + 2)
-                op_size = 1 + (cmd >> 6)  # should be 3
+                self.pc += 1 + (cmd >> 6)  # should be 3
 
             elif cmd == PRN:
                 print(self.reg[self.ram_read(self.pc + 1)])
-                op_size = 1 + (cmd >> 6)  # should be 2
+                self.pc += 1 + (cmd >> 6)  # should be 2
 
             elif cmd == MUL:
                 self.alu('MUL', self.ram_read(self.pc + 1),
                          self.ram_read(self.pc + 2))
-                op_size = 1 + (cmd >> 6)  # should be 3
+                self.pc += 1 + (cmd >> 6)  # should be 3
 
             elif cmd == PUSH:
                 # decrement the stack pointer by one
@@ -117,7 +124,7 @@ class CPU:
                 # store the given value in the memory stack
                 self.ram[self.reg[self.stackPointerIndex]] = value
 
-                op_size = 1 + (cmd >> 6)  # should be 2
+                self.pc += 1 + (cmd >> 6)  # should be 2
 
             elif cmd == POP:
                 # get the value that stack pointer is currently pointing at
@@ -129,9 +136,22 @@ class CPU:
                 # increment the stack pointer
                 self.reg[self.stackPointerIndex] += 1
 
-                op_size = 1 + (cmd >> 6)  # should be 2
+                self.pc += 1 + (cmd >> 6)  # should be 2
 
-            self.pc += op_size
+            elif cmd == CALL:
+                registerNumber = self.ram_read(self.pc + 1)
+                subroutineAddress = self.reg[registerNumber]
+
+                returnAddress = self.pc + 2
+
+                self.reg[self.stackPointerIndex] -= 1
+                self.ram[self.reg[self.stackPointerIndex]] = returnAddress
+                self.pc = subroutineAddress
+
+            elif cmd == RET:
+                returnAddress = self.ram[self.reg[self.stackPointerIndex]]
+                self.pc = returnAddress
+                self.reg[self.stackPointerIndex] += 1
 
     def ram_read(self, MA):
         return self.ram[MA]
